@@ -106,6 +106,7 @@ gov$pp7 <- as.numeric(gov$UMD86 == 1)
 gov$pp8 <- as.numeric(gov$UMD87 == 1)
 
 gov$pp <- (gov$pp1 + gov$pp2 + gov$pp3 + gov$pp4 + gov$pp5 + gov$pp6 + gov$pp7 +gov$pp8)
+gov$pp2  <- normalize(gov$pp, method = "range", range = c(0,1))
 
 hist(gov$pp, breaks = 8)
 
@@ -406,14 +407,15 @@ stargazer(cor.black, cor.white, type = "html",digits = 2,covariate.labels = labe
 
 #The Role of Grievances in National Attachment
 
-```{r Full All Model}
+```{r Multivariate Grievance Correlates Model}
 
-black3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, weights = gov2$weight, data=gov2)
+black3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new +   pid7 +  age + age2 + c.dlf*grieve + rids*grieve, weights = gov2$weight, data=gov2)
 
-white3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, weights = gov1$weight, data=gov1)
+white3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new + pid7 +  age + age2 + c.dlf*grieve + rids*grieve, weights = gov1$weight, data=gov1)
 
+labels3 <- c("Education", "Racial ID Strength", "SDO", "Gender", "Income", "7-pt Party ID", "Age", "Age-Squared", "Linked Fate", "Grievances", "Linked Fate*Grievances", "Racial ID Strength*Grievances","Constant")
 
-stargazer(black3, white3, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "National Attachment", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+stargazer(black3, white3, type = "text", digits = 2, digits.extra = 0, star.cutoffs = c(0.05, 0.01, 0.001), covariate.labels = labels3, dep.var.labels = "National Attachment", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
 ```
 
 
@@ -424,20 +426,22 @@ stargazer(black3, white3, type = "text", digits = 2, digits.extra = 0, dep.var.l
 ```{r Plotting Natid Model}
 
 
-Z = c("Intercept", "Education", "Racial ID Strength", "SDO", "Gender", "Income", "Party ID", "Age", "Age-Squared", "Linked Fate", "Grievances", "Grievances*Linked Fate")
+Z = c("Intercept", "Education", "Racial ID Strength", "SDO", "Gender", "Income", "Party ID", "Age", "Age-Squared", "Linked Fate", "Grievances", "Grievances*Linked Fate", "Racial ID Strength*Grievances")
 
 plotreg(black3,
         custom.model.names = c(" "), 
-        custom.title = "Linked Fate and Black National Attachment", custom.coef.names = Z, 
+        custom.title = "Linked Fate and Black National Attachment", 
+        custom.coef.names = Z, 
         omit.coef = "Intercept",
-        theme = theme_classic(),
+        theme = theme_minimal(),
         center = TRUE) 
 
 plotreg(white3,
         custom.model.names = c(" "), 
-        custom.title = "Linked Fate and White National Attachment", custom.coef.names = Z, 
+        custom.title = "Linked Fate and White National Attachment", 
+        custom.coef.names = Z, 
         omit.coef = "Intercept",
-        theme = theme_classic(),
+        theme = theme_minimal(),
         center = TRUE) 
 ```
 ```{r Plotting All Interactions}
@@ -448,45 +452,22 @@ plotreg(white3,
 #hist(gov1$sdo)
 #hist(gov1$c.dlf)
 
-plot_model(black3, type = "int")
 
-out <- interflex(estimator = "binning", treat.type = "continuous", Y = "usid", D = "grieve", X = "c.dlf", Z = c("educ", "sdo", "gender", "faminc_new", "pid7", "age", "age2", "rids"), data = gov2,weights = "weight", ylim = c(-1,0.05) ,main = "Marginal Effects of Grievances on Black National Attachment", xlab = "Linked Fate", ylab = "Marginal Effect of Grievances on Black National Attachment")
+#c(.202, .60, .995) Linked fate mean +/- 1sd
+#c(.46, .66, .86) grievance mean  +/- 1sd
 
-out$figure
+out <- interflex(estimator = "binning",   treat.type = "continuous", Y = "usid", D = "c.dlf", X = "grieve", Z = c("educ", "sdo", "gender", "faminc_new", "pid7", "age", "age2", "rids"), vcov.type = "robust", data = gov2,weights = "weight", predict == T, cutoff = c(.46, .66, .86), Xdistr = "density", wald = TRUE, main = "Marginal Effects of Grievances on Black National Attachment", xlab = "Linked Fate", ylab = "Marginal Effect of Grievances on Black National Attachment")
 
+out2 <- interflex(estimator = "linear", treat.type = "continuous", Y = "usid", D = "c.dlf", X = "grieve", Z = c("educ", "sdo", "gender", "faminc_new", "pid7", "age", "age2", "rids"), vcov.type = "robust", data = gov2,weights = "weight", predict == T, cutoff =  c(.46, .66, .86), Xdistr = "density", wald = TRUE, main = "Marginal Effects of Grievances on Black National Attachment", xlab = "Linked Fate", ylab = "Marginal Effect of Grievances on Black National Attachment")
 
-```
-#The Role of Grievances in Political Participation
+out$tests$p.wald
 
+predict.interflex(out, newdata = gov2, weights = gov2$weight, Xdistr = "density",  main = "The Marginal Effect of Grievances on \nPredicted Values of Black National Attachment \n with Linked Fate Fixed at Median: Interflex Approach", xlab = "Marginal Effect of Grievances Among Median Linked Fate Believers", ylab = "Expected Black National Attachment", ylim = c(-.05, 1.75))
 
-```{r}
-
-bpp <- glm(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, family = poisson, weights = gov2$weight, data=gov2)
-
-wpp <- glm(pp ~ usid + educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, family = poisson, weights = gov1$weight, data=gov1)
-
-stargazer(bpp, wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
-```
-
-```{r}
-hist(gov1$pp, breaks = 8)
-hist(gov2$pp, breaks = 8)
-
-z.bpp <- zeroinfl(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov2, dist = "poisson", link = "logit", weights = gov2$weight)
-
-z.wpp <- zeroinfl(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov1, dist = "poisson", link = "logit", weights = gov1$weight)
-
-stargazer(z.bpp, z.wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+predict.interflex(out2, newdata = gov2, weights = gov2$weight, Xdistr = "density", main = "The Marginal Effect of Grievances on \nPredicted Values of Black National Attachment \n with Linked Fate Fixed at Median: Linear Approach", xlab = "Marginal Effect of Grievances Among Median Linked Fate Believers", ylab = "Expected Black National Attachment", ylim = c(-.05, 1.75))
 
 ```
-
-```{r}
-h.bpp <- hurdle(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov2, dist = "poisson", zero.dist = "binomial", link = "logit", weights = gov2$weight)
-
-h.wpp <- hurdle(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov1, dist = "poisson", zero.dist = "binomial", link = "logit", weights = gov1$weight)
-
-stargazer(h.bpp, h.wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
-```
+I turn to model fit statistics. I first conduct a Wald test to determine whether the more flexible interpretation of the grievance-linked fate interaction creates a meaningful change in the interpretability of the model. The null hypothesis is that the value of the  grievances-linked fate interaction will be zero at the in both the linear and flexible "binning" model. The model had a Wald statistic  p-value of 0.00. I reject the null hypothesis that flexible model of the grievances-linked fate interaction provides better interpretation over the linear model. 
 
 
 
@@ -554,7 +535,13 @@ plot_model(white4, type = "int")
 ## References
 
 Gannon-Cook, R. (2010). What Motivates Faculty to Teach in Distance Education?: A Case Study and Meta-Literature Review. University Press of America.
+
 Manly, B. (2004). Multivariate Statistical Methods: A Primer, Third Edition. CRC Press.
+
+Chambers, J. M. and Hastie, T. J. (1992) Statistical Models in S. Wadsworth & Brooks/Cole.
+
+Jens Hainmueller; Jonathan Mummolo; Yiqing Xu. 2019. "How Much Should We Trust Estimates from Multiplicative Interaction Models? Simple Tools to Improve Empirical Practice." Political Analysis, Vol. 27, Iss. 2, April 2019, pp. 163--192. Available at: http://bit.ly/HMX2019.
+
 
 
 

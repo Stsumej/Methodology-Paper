@@ -1,0 +1,46 @@
+---
+title: "Grievances and Political Participation"
+output: html_notebook
+---
+
+ 
+#The Role of Grievances in Political Participation
+
+
+```{r}
+
+bpp <- glm(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, family = poisson, weights = gov2$weight, data=gov2)
+
+wpp <- glm(pp ~ usid + educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, family = poisson, weights = gov1$weight, data=gov1)
+
+stargazer(bpp, wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+```
+
+```{r}
+hist(gov1$pp, breaks = 8)
+hist(gov2$pp, breaks = 8)
+
+z.bpp <- zeroinfl(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov2, dist = "poisson", link = "logit", weights = gov2$weight)
+
+z.wpp <- zeroinfl(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov1, dist = "poisson", link = "logit", weights = gov1$weight)
+
+stargazer(z.bpp, z.wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+
+```
+
+```{r}
+h.bpp <- hurdle(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov2, dist = "poisson", zero.dist = "binomial", link = "logit", weights = gov2$weight)
+
+h.wpp <- hurdle(pp ~ usid +  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve,data=gov1, dist = "poisson", zero.dist = "binomial", link = "logit", weights = gov1$weight)
+
+stargazer(h.bpp, h.wpp, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "Political Participation", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+```
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
