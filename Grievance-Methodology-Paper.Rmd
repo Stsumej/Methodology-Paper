@@ -1,0 +1,490 @@
+---
+title: "Grievance Methodology Paper"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+rm(list=ls())
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+setwd("~/Documents/Working Directory/Working Directory ")
+
+
+
+library(forcats)
+library(bookdown)
+library(knitr)
+library(readstata13)
+library(tidyverse)
+library(readxl)
+library(lmtest)
+library(plm)
+library(stargazer)
+library(pROC)
+library(dplyr)
+library(gridExtra)
+library(texreg)
+library(ggplot2)
+library(gmodels)
+library(BBmisc)
+library(psych)
+library(GPArotation)
+library(sjmisc)
+library(sjPlot)
+library(Hmisc)
+library(interflex)
+
+gov <- read.dta13("June 2021 YouGov.dta")
+
+```
+
+Grievances as a Function of Marginalization 
+```{r grieve}
+
+#Grievances - these are in the correct order. DO NOT REVERSE. (8/27). Confirmed, everything in and out of the grid is in the correect order (8/31).
+gov$g1 <- as.numeric(gov$UMD74)
+gov$g1 <- normalize(gov$g1, "range", range = c(0,1))
+gov$g2 <- as.numeric(gov$UMD75)
+gov$g2 <- normalize(gov$g2, "range", range = c(0,1))
+gov$g3 <- as.numeric(gov$UMD76)
+gov$g3 <- normalize(gov$g3, "range", range = c(0,1))
+gov$g4 <- as.numeric(gov$UMD77)
+gov$g4 <- normalize(gov$g4, "range", range = c(0,1))
+gov$g5 <- as.numeric(gov$UMD78)
+gov$g5 <- normalize(gov$g5, "range", range = c(0,1))
+gov$g6 <- as.numeric(gov$UMD79)
+gov$g6 <- normalize(gov$g6, "range", range = c(0,1))
+
+
+gov$grieve <- (gov$g1 + gov$g2 + gov$g3 + gov$g4 + rev(gov$g5) + gov$g6)/6
+gov$grieve <- normalize(gov$grieve, method = "range", range = c(0,1))
+
+gov$grieve2 <- (gov$g1 + gov$g2 + gov$g3 + gov$g4)/4
+gov$grieve2 <- normalize(gov$grieve2, method = "range", range = c(0,1))
+
+
+
+```
+
+```{r correlates}
+
+#Everything is normalized from 0 to 1
+#DV - American ID Strength
+
+gov$us1 <- as.factor(gov$UMD70)
+gov$us1 <- fct_rev(gov$us1)
+gov$us2 <- as.factor(gov$UMD71)
+gov$us2 <- fct_rev(gov$us2)
+gov$us3 <- as.factor(gov$UMD72)
+gov$us3 <- fct_rev(gov$us3)
+gov$us4 <- as.factor(gov$UMD73)
+gov$us4 <- fct_rev(gov$us4)
+
+gov$us1 <- as.numeric(gov$us1)
+gov$us2 <- as.numeric(gov$us2)
+gov$us3 <- as.numeric(gov$us3)
+gov$us4 <- as.numeric(gov$us4)
+
+gov$usid <- (gov$us1 + gov$us2 + gov$us3 + gov$us4)/4
+gov$usid <- normalize(gov$usid, method = "range", range = c(0,1))
+
+
+hist(gov$usid)
+
+#IVs
+
+gov$race #White, Black, Hispanic, Asian, Indigenous
+gov$Black <- gov$race == 2
+gov$White <- gov$race == 1
+
+##Party ID Strength
+gov$pid1 <- as.factor(gov$UMD9)
+gov$pid1 <- fct_recode(gov$pid1, NULL = "9")
+gov$pid2 <- as.factor(gov$UMD10)
+gov$pid2 <- fct_recode(gov$pid2, NULL = "9")
+gov$pid3 <- as.factor(gov$UMD11)
+gov$pid3 <- fct_recode(gov$pid3, NULL = "9")
+
+
+gov$pid1 <- as.numeric(gov$pid1)
+gov$pid2 <- as.numeric(gov$pid2)
+gov$pid3 <- as.numeric(gov$pid3)
+
+gov$pids <- (gov$pid1 + gov$pid2 + gov$pid3)/3
+gov$pids <- normalize(gov$pids, method = "range", range = c(0,1))
+
+
+
+#Linked Fate
+gov$lf <- gov$UMD68
+gov$c.dlf <- as_factor(gov$UMD69)
+
+
+
+gov$c.dlf <-  fct_recode(gov$c.dlf,
+                           "No" = "9",
+                         "Not Very Much" = "1",
+                        "Some" = "2", 
+                        "A Lot" = "3")
+gov$c.dlf <- fct_relevel(gov$c.dlf,
+                           "No" )
+
+gov$c.dlf <- as.numeric(gov$c.dlf)
+gov$c.dlf <- normalize(gov$c.dlf, method = "range", range = c(0,1))
+
+
+gov$UMD69 <- as_factor(gov$UMD69)
+gov$lf <-  fct_recode(gov$UMD69,
+                           "Low LF" = "9",
+                         "Low LF" = "1",
+                        "High LF" = "2", 
+                        "High LF" = "3")
+
+
+##Racial ID Strength
+gov$rids <- as.factor(gov$UMD12)
+gov$rids <- fct_rev(gov$rids)
+gov$rids <- as.numeric(gov$rids)
+gov$rids <- normalize(gov$rids, method = "range", range = c(0,1))
+gov$rids2 <- as_factor(gov$rids > .5)
+
+#SDO 
+gov$sdo1 <- normalize(gov$UMD13,  method = "range", range = c(0,1))
+gov$sdo2 <- normalize(gov$UMD14,  method = "range", range = c(0,1))
+gov$sdo3 <- normalize(gov$UMD15,  method = "range", range = c(0,1))
+gov$sdo4 <- normalize(gov$UMD16, method = "range", range = c(0,1))
+gov$sdo5 <- normalize(gov$UMD17, method = "range", range = c(0,1))
+
+gov$sdo <- (gov$sdo1 + gov$sdo2 + gov$sdo3 + gov$sdo4 + gov$sdo5)/5
+gov$sdo <- normalize(gov$sdo, method = "range", range = c(0,1))
+
+#Covariates
+gov$educ
+gov$educ <- normalize(gov$educ, method = "range", range = c(0,1))
+gov$gender
+gov$faminc_new
+gov$faminc_new <- normalize(gov$faminc_new, method = "range", range = c(0,1))
+gov$pid7
+gov$pid7 <- normalize(gov$pid7, method = "range", range = c(0,1))
+gov$age <- as_factor(gov$birthyr)
+gov$age <- fct_rev(gov$age)
+gov$age <- as.numeric(gov$age)
+gov$age <- normalize(gov$age, method = "range", range = c(0,1))
+gov$age2 <- gov$age^2
+gov$age2 <- normalize(gov$age2, method = "range", range = c(0,1))
+
+#Subset to Black Americans
+gov1 <- gov %>% filter(White)
+gov2 <- gov %>% filter(Black)
+```
+
+## Inroduction 
+
+# The Grievance Grievance Measure 
+
+A grievance is the unfair treatment of a group of individuals. Aggrieved individuals feel like they have been treated unfairly. Sometimes, grievances translate to coordinated action (KLandermans 2014). Grievances activate individuals to participate in group goals and by doing so reinforce the individual's social embeddedness within the group. So does the identity preceed the protest or the protest preceed the identity? Netiher. The identity cannot exist without the collective insofar as the person cannot exist without the whole. Therefore the relationship between identity and grievances is reflexive and dialectic.
+
+Understanding grievances can help explain politics. Specifically, grievances have linked identity to political participation (Klandermans 2014). While grievances have been conceptualized at the group-level of politics, little is known about the role of grievances at the individual-level.My grievance measure captures captures how individuals understand grievances against their group. Understanding how individuals understand group grievances can help predict when and whether an individual will mobilize.
+
+I am interested in how individuals cognicize, evaluate, and respond to ingroup grievances. As such, I am interested in how Black Americans perceive grievances toward their racial ingroup. Grievances have been linked to mobilization among Black Americans (Klandermans 2014). Still, little research has considered how Black Americans understand grievances against their racial group. 
+
+In conceptualizing a measure of grievances, I had a few goals in mind. First, I wanted my measure to capture individual-level variations in perception of unfair treatment. Second, I wanted the measure to connect group-level conceptualizations of grievances. The link between group-level and individual-level perceptions of grievances should parallel the link between individuals and groups. Finally, I wanted my measure to be simple and easy for general audiences to understand. 
+
+
+
+#Descriptive Statistics
+
+To evaluate my measure, I conducted a YouGov survey in June of 2021. The YouGov survey estimates a nationally-representative sample of respondents and, using a match system, selects a random sample of respondents that match the distribution of demographics in the population. The benefit of this survey is that the sample is as close to the population as feasibly possible. The downfall of using this particular sample, however, is that there were few Black respondents (n = 276). Still, these data provide a quality sample from which I can derive empirical inferences. 
+
+I conceptualize grievances using a six-item scale. Each item asks the extent to which  an individual feels they have been treated unfairly. For each item, individuals were able to select a level of agreement with the item from "not at all" to "very much." One question asks whether an individual percieves grievances in the first place. Individuals may experience unfair treatment within social, political, or economic domains. As such, three items consider specific social, political, and economic grievances. The final two questions concern how individuals evaluate grievance. The first asks whether the individual is satisfied with the United States government's response to grievances. Finally, individuals were asked to identify the relative importance of grievances to their personal life. The specific wording of the items can be found in Appendix A.
+
+I normalize individual responses to each item on a scale ranging from 0 to 1. I then combine the six-items into a single measure, again scaling the final from 0 to 1. I include a descriptive summary of each of the six items below. The table reports the mean and standard deviation across each constituent item of the grievance measure. 
+
+
+```{r Summary stats of grievance components}
+grieves <- gov %>% select(g1,g2, g3, g4, g5, g6)
+stargazer(grieves, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"), title = "Grievance Summary Statistics" )
+
+grieves2 <- gov2 %>% select(g1,g2, g3, g4, g5, g6)
+stargazer(grieves2, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"), title = "Grievance Summary Statistics Among Black Americans" )
+
+grieves1 <- gov1 %>% select(g1,g2, g3, g4, g5, g6)
+stargazer(grieves1, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"),title = "Grievance Summary Statistics Among White Americans" )
+```
+To test whether grievances capture the same thing as social dominance, I include a measure of social dominance orientation. I use a five-item measure of social dominance orientation. Each constituent SDO item was normalized from a scale of 0 to 1. I then combined the constituent parts into a single measure and standardized the range of the value from 0 to 1. I provide a table of SDO summary statistics below. 
+
+
+```{r Summary stats of sdo components}
+a.sdo <- gov %>% select(sdo1,sdo2, sdo3, sdo4, sdo5)
+stargazer(a.sdo, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"), title = "SDO Summary Statistics" )
+
+b.sdo <- gov2 %>% select(sdo1,sdo2, sdo3, sdo4, sdo5)
+stargazer(b.sdo, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"), title = "Grievance Summary Statistics Among Black Americans" )
+
+w.sdo <- gov1 %>% select(sdo1,sdo2, sdo3, sdo4, sdo5)
+stargazer(w.sdo, type = "text", digits = 2, digits.extra = 0, omit.summary.stat = c("n", "p25", "p75"),title = "Grievance Summary Statistics Among White Americans" )
+```
+
+#Visualizing the Grievance Measure
+
+Now that I have demonstrated the distribution of reponses to the constituent grievance items I turn to the distribution of the combined measure. Figure 3 and 4 below display the distribution of grievance perception among all Americans and Black Americans, respectively. Looking at Figure 3, the distribution of attitudes about Black American grievances are approximately normal with a slight left skew. This means the average Americans moderately agrees that Black American grievances are an issue. Looking at perceptions of grievances among Black Americans in Figure 4, we see the distribution of perceived grievances are heavily skewed toward the left. This means that the average Black American feels strongly that grievances are present and problematic in American society. 
+
+```{r Grieve Distribution}
+hist(gov$grieve, main = "Distribution of Grievances", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+
+hist(gov2$grieve, main = "Distribution of Grievances Among\nBlack Americans", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+
+hist(gov1$grieve, main = "Distribution of Grievances Among\nWhite Americans", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+```
+```{r}
+hist(gov$sdo, main = "Distribution of SDO", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+
+hist(gov2$sdo, main = "Distribution of SDO Among\nBlack Americans", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+
+hist(gov1$sdo, main = "Distribution of SDO Among\nWhite Americans", xlab = "Mean Grievance Level", ylab = "Number of Respondents")
+```
+
+#Factor Analysis
+
+I then employed exploratory factor analysis to construct a measure of perception of Black American grievances. Using a factor analysis allows me to uncover the shared variance between the constituent items and determine structure of the concept. If my constituent items are related to a single, then I can infer whether the six constituent grievance items are related to the same construct. Specifically, I conduct a factor analysis with a varimax rotation. Using a varimax rotation allows me to retain the isolated influence of each item and provides added utility, consistency, and meaning (Gannon-Cook, 2010).  
+
+To begin, I first constrained the six items into one factor. The results of this analysis can be seen in Figure 4 and Figure 5. Figure 4 looks at perception of Black American grievances among all respondents. Figure 5 reports perception of Black American grievances among Black Americans. All six-items loaded onto a single measure and were statistically significant for all Americans (X2 = 96.29, df = 9; p = .00) and Black Americans (X2 = 20.16, df = 9; p = .02). This confirms my expectation that each of the six items share variance and tap into different elements of the same underlying construct. 
+
+To confirm this, I also assess the eigenvalues for the grievance perception measure. The x-axis reports the number of factors the items share in common. The y-axis reports the eigenvalue. Eigenvalues denote the amount of variance in each component that can be explained by single factor. High eigenvalues indicate that the six items are related to a specific number of factors. Low eigenvalues indicate a low-likelihood that the items are related to that number of factors. I hypothesize that the six items will load onto a single factor. If this is true, the eigenvalue for one-factor will exceed 0. Looking at Figures 4 and 5, we see that the eigenvalue for a single factor exceeds 0. Thus, I find support for my hypothesis and conclude that the six component items of Black American grievance perception battery tap into a single underlying construct. 
+
+To be thorough, I also tested four- and five-item variations of grievances. Neither assessment produced empirically distinct results from the six-point measure. As such, I continue with the full six-item measure as it provides a richer measure of Black American grievance perception.
+
+
+```{r Cronbach Grievances- All}
+#Cronbach's Alpha for Grievances for All Americans
+matrix1 <- as.data.frame(cbind(gov$g1, gov$g2, gov$g3, gov$g4, gov$g5, gov$g6))
+alpha1 <- psych::alpha(matrix1, check.keys = TRUE, n.iter = 1000)
+alpha1
+
+factanal(matrix1, factors = 1, rotation = "varimax")
+
+
+scree(matrix1,  main = "Scree Plot of Eigenvalues after Factor: All") 
+```
+
+
+```{r Cronbach Grievances- Black}
+#Cronbach's Alpha for Grievances for All Americans
+matrix2 <- as.data.frame(cbind(gov2$g1, gov2$g2, gov2$g3, gov2$g4, gov2$g5, gov2$g6))
+alpha2 <- psych::alpha(matrix2, check.keys = TRUE, n.iter = 1000)
+alpha2
+
+factanal(matrix2, factors = 1, rotation = "varimax")
+ 
+scree(matrix2,  main = "Scree Plot of Eigenvalues after Factor") 
+```
+
+```{r Cronbach Grievances- White}
+#Cronbach's Alpha for Grievances for White Americans
+matrix3 <- as.data.frame(cbind(gov1$g1, gov1$g2, gov1$g3, gov1$g4, gov1$g5, gov1$g6))
+alpha3 <- psych::alpha(matrix3, check.keys = TRUE, n.iter = 1000)
+alpha3
+
+factanal(matrix3, factors = 1, rotation = "varimax")
+
+
+scree(matrix1,  main = "Scree Plot of Eigenvalues after Factor: White") 
+```
+
+
+```{r Factor Loadings}
+p.out <- fa(matrix1, 
+            nfactors = 1,
+            fm = "pa",
+            max.iter = 1000,
+            rotate = "varimax") #All
+
+fa.diagram(p.out)
+
+p.outb <- fa(matrix2, 
+            nfactors = 1,
+            fm = "pa",
+            max.iter = 1000,
+            rotate = "varimax") #Black
+
+fa.diagram(p.outb)
+
+p.outw <- fa(matrix3, 
+            nfactors = 1,
+            fm = "pa",
+            max.iter = 1000,
+            rotate = "varimax") #Black
+
+fa.diagram(p.outw)
+```
+
+
+## Modeling
+
+#Correlates of Grievances
+So far, I have established my grievance measure as coherent and reliable. Now that I have addressed the internal consistency of the measure, I turn to the concurrent validity. Specifically, I am interested in the relationship between my grievance variable and similar measures of racial identity. I do this by conducting a correlation matrix. The correlation matrix will determine the extent to which grievance differs from comparable measures. 
+
+I use a Pearson's correlation matrix to test the claim that grievances are related to racial identity strength, linked fate, partisan identity strength, and U.S. national identity. Correlation values range from 0 to 1 where low values indicate low correlation and high values indicate high correlation. Racial identity strength describes one's subjective attachment to a racial identity group. Linked fate is a heuristic that Black Americans employ for political decisions (Dawson 1994). When Black Americans use linked fate, they consider their racial group in their personal decisions. Next, partisan identity strength describes the degree of attachment to one's party identity group. Finally, national identity describes the extent to which an individual identifies with their national identity group. Each of these measures are important to deciphering the role of race in national attachment. 
+
+I hypothesize that grievances are highly correlated with racial identity strength, linked fate, partisan identity strength, and national identity for Black Americans. To do this, I conduct three parallel analyses. The first looks at correlations for *all* Americans. The second looks at Black Americans. Finally, I perform the same comparison among White Americans. This will allow me to decipher whether these correlations operate differently for different racial groups. 
+
+I begin with an assessment of correlations for all Americans. Looking at the matrix below, I find that grievances vary little with racial identity strength (R = 0.9, p = .oo). This means that one's perception of unfair treatment toward the group is distinct from one's subjective attachment to the racial group. The relationship between grievances and linked fate is similarly low (R = .08, p = .00). So far, I find little support for my hypothesis that greivances will correlate with racial identity strength and linked fate. This means that grievances play a distinct role in racial identity. 
+
+I now turn to non-racial elements of the matrix -- partisan   and national identity strength. Both partisan identity strength (R = -.63, p = .00) and national identity strength (R = -.33, p = .oo) are negatively correlated with grievances. This means that individuals who consider grievances against Black Americans are less likely to feel attached to their partisan or national identity group. Still, these negative correlations are below the threshold of .5. This means that my hypothesis is not supported by a bi-variate assessment. 
+
+Now, I repeat this analysis for Black Americans. Again, I hypothesize all four measures of interest -- racial identity strength, linked fate, partisan identity strength, and national identity strength -- are highly correlated with grievances. The correlation data does not support my hypothesis. Each of the four measures is weakly correlated (R < .50) among Black Americans. Of all the measures of interest, grievances are most closely associated with racial identity strength (R = .42, p = .00). While this measure does not meet the threshold of .5, it is worth noting that correlation tests are sensitive to sample size and the sample size for Black Americans is small (n = 276). So while these results do not meet the empirical threshold, it still remains true that grievance perecption is related to racial identity strength. 
+
+
+
+```{r Correlation matrix}
+
+#includes correlation, number of observations used for each cell, and the p-value of each correlation
+cor <- gov %>% select(grieve, rids, c.dlf, pid7, usid, sdo)
+  
+rcorr(as.matrix(cor))
+
+bcor <- gov2 %>% select(grieve, rids, c.dlf, pid7, usid, sdo)
+  
+rcorr(as.matrix(bcor))
+
+wcor <- gov1 %>% select(grieve, rids, c.dlf, pid7, usid, sdo)
+
+rcorr(as.matrix(wcor))
+```
+
+# Grievance Correlates 
+Now I move from bi-variate comparisons to a multi-variate regression. My goal is to evaluate the concurrent validity of the grievance measure in a multi-variate context. Here I focus on Black Americans. I regress my grievance index on the previous four measures (racial identity strength, linked fate, partisan identity strength, and national identity strength) in addition to traditional controls for political behavior. 
+
+
+```{r all modeled correlates}
+cor.black <- lm(grieve ~ rids + c.dlf +  sdo + educ + usid + gender +  faminc_new + pid7 + c.dlf + age + age2, weights = gov2$weight, data=gov2)
+
+cor.white <- lm(grieve ~ rids + c.dlf +  sdo + educ + usid + gender +  faminc_new + pid7 + c.dlf + age + age2, weights = gov1$weight, data=gov1)
+
+
+stargazer(cor.black, cor.white, type = "text", digits = 2, digits.extra = 0,  dep.var.labels = "Grievance Perception" ,column.labels = c("Black", "White"), se=list(NULL), omit.stat = c("LL", "ser", "f", "adj.rsq"))
+
+```
+
+#The Role of Grievances in National Attachment
+
+```{r Full All Model}
+
+black3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, weights = gov2$weight, data=gov2)
+
+white3 <- lm(usid ~  educ + rids + sdo +  gender +  faminc_new +  pid7 +  age + age2 + c.dlf*grieve, weights = gov1$weight, data=gov1)
+
+
+stargazer(black3, white3, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "National Attachment", column.labels = c( "Black", "White"), se=list(NULL), omit.stat = c("ser", "f", "adj.rsq"))
+```
+
+
+
+
+
+
+```{r Plotting Natid Model}
+
+
+Z = c("Intercept", "Education", "Racial ID Strength", "SDO", "Gender", "Income", "Party ID", "Age", "Age-Squared", "Linked Fate", "Grievances", "Grievances*Linked Fate")
+
+plotreg(black3,
+        custom.model.names = c(" "), 
+        custom.title = "Linked Fate and Black National Attachment", custom.coef.names = Z, 
+        omit.coef = "Intercept",
+        theme = theme_classic(),
+        center = TRUE) 
+
+plotreg(white3,
+        custom.model.names = c(" "), 
+        custom.title = "Linked Fate and White National Attachment", custom.coef.names = Z, 
+        omit.coef = "Intercept",
+        theme = theme_classic(),
+        center = TRUE) 
+```
+```{r Plotting All Interactions}
+#Checked my core variables for linearity and there is little
+
+#hist(gov1$usid)
+#hist(gov1$rids)
+#hist(gov1$sdo)
+#hist(gov1$c.dlf)
+
+plot_model(black3, type = "int")
+
+out <- interflex(estimator = "binning", treat.type = "continuous", Y = "usid", D = "grieve", X = "c.dlf", Z = c("educ", "sdo", "gender", "faminc_new", "pid7", "age", "age2", "rids"), data = gov2,weights = "weight", ylim = c(-1,0.05) ,main = "Marginal Effects of Grievances on Black National Attachment", xlab = "Linked Fate", ylab = "Marginal Effect of Grievances on Black National Attachment")
+
+out$figure
+
+
+```
+
+
+##Appendix 
+
+Grievance Items 
+
+How much do you agree with the following statement: I think the unfair treatment of Black Americans is a problem in our society today.
+1.	No problem at all
+2.	A small problem
+3.	A big problem
+4.	The biggest problem 
+
+Recently, political pundits have debated whether the United States has treated Black Americans unfairly.  Please indicate whether you agree or disagree with the following statements:  
+
+Black Americans are treated unfairly in American society due to their race. An example would be educational opportunities or where they can live.
+1.	Strongly disagree
+2.	Somewhat disagree
+3.	Somewhat agree 
+4.	Strongly agree 
+
+UMD76: 	Black Americans are treated unfairly in American politics. An example would be voter rights or access to citizenship. 
+1.	Strongly disagree
+2.	Somewhat disagree
+3.	Somewhat agree 
+4.	Strongly agree 
+
+UMD77:	Black Americans are treated unfairly in the American economy. An example would be wage inequality or inherited wealth.
+1.	Strongly disagree
+2.	Somewhat disagree
+3.	Somewhat agree 
+4.	Strongly agree 
+
+UMD78:	I am satisfied with how the United States has responded to the treatment of Black Americans. 
+1.	Strongly disagree
+2.	Somewhat disagree
+3.	Somewhat agree 
+4.	Strongly agree 
+
+
+How important is it to you that Black Americans feel like they are treated fairly? 
+1.	Unimportant
+2.	Somewhat unimportant
+3.	Somewhat important 
+4.	Very Important 
+
+
+
+```{r White models}
+
+white3 <- lm(usid ~  educ +  grieve +  gender +  faminc_new +  pid7 +  c.dlf + age + age2 + rids*grieve, weights = gov1$weight, data=gov1)
+
+white4 <- lm(usid ~  educ +   grieve +  gender +  faminc_new +  pid7 +  c.dlf + age + age2 + grieve*c.dlf, weights = gov2$weight, data=gov2)
+
+stargazer(white3, white4, type = "text", digits = 2, digits.extra = 0, dep.var.labels = "White National Attachment", se=list(NULL), omit.stat = c("LL", "ser", "f", "adj.rsq"))
+
+plot_model(white3, type = "int")
+plot_model(white4, type = "int")
+
+```
+
+## References
+
+Gannon-Cook, R. (2010). What Motivates Faculty to Teach in Distance Education?: A Case Study and Meta-Literature Review. University Press of America.
+Manly, B. (2004). Multivariate Statistical Methods: A Primer, Third Edition. CRC Press.
+
+
+
+
+
+
